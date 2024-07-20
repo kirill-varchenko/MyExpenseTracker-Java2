@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.BorderPane?>
+<BorderPane prefHeight="240.0" prefWidth="212.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.example.myexpensetracker.controller.LoginController">
+   <center>
+      <ListView fx:id="userList" prefHeight="200.0" prefWidth="290.0" BorderPane.alignment="CENTER" />
+   </center>
+   <bottom>
+      <ToolBar prefHeight="40.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+        <items>
+          <Button mnemonicParsing="false" onAction="#onCancel" text="Cancel" />
+            <Button mnemonicParsing="false" onAction="#onRegister" text="Register" />
+            <Button mnemonicParsing="false" onAction="#onLogin" text="Login" />
+        </items>
+      </ToolBar>
+   </bottom>
+</BorderPane>

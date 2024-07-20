@@ -1,0 +1,317 @@
+@startuml
+namespace model {
+	abstract class Record {
+	- id : UUID
+	- ownerId : UUID
+	- date : Date
+	- type : Record.Type
+	- comment : String
+	{abstract} + getDetails() : String
+	}
+	
+	enum "Record.Type" as RecordType {
+	EXPENSE
+	INCOME
+	TRANSFER
+	EXCHANGE
+		}	
+	
+	class Expense {
+	- entries : List[Entry]
+	}
+	class Income {
+	- entries : List[Entry]
+	}
+	class Exchange {
+	- account : Account
+	- fromAmount : Amount
+	- toAmount : Amount
+	}
+	class Transfer {
+	- fromAccount : Account
+	- toAccount : Account
+	- amount : Amount
+	}
+	
+	class Entry {
+	- account : Account
+	- amount : Amount
+	- category : Category
+	- comment : String
+	- tags : List[Tag]
+	}
+	
+	class Amount {
+	- value : BigDecimal
+	- currency : Currency
+	+ isPositive() : boolean
+	+ add(Amount) : Amount
+	}
+	
+	class Account {
+	- id : UUID
+	- ownerId : UUID
+	- parentId : UUID
+	- active : boolean
+	- name : String
+	- type : Account.Type
+	}
+	
+	enum "Account.Type" as AccountType {
+	CASH
+	DEBT
+	BANK
+	CRYPTO
+		}	
+		
+	class Category {
+	- id : UUID
+	- ownerId : UUID
+	- parentId : UUID
+	- active : boolean
+	- name : String
+	}
+	
+	class Currency {
+	- id : UUID
+	- ownerId : UUID
+	- parentId : UUID
+	- active : boolean
+	- name : String
+	- code : String
+	- symbol : String
+	}
+	
+	class Context {
+	- user : User
+	- account : List[Account]
+	- currencies : List[Currency]
+	- categories : List[Category]
+	- tags : List[Tag]
+	}
+	
+	class ExchangeRate {
+	- fromCurrency : Currency
+	- toCurrency : Currency
+	- rate : BigDecimal
+	+ invert() : ExchangeRate
+	}
+	
+	class Tag {
+	- id : UUID
+	- ownerId : UUID
+	- active : boolean
+	- name : String
+	}
+	
+	class User {
+	- id : UUID
+	- username : String
+	- profile : Profile
+	}
+	
+	class Profile {
+	- baseCurrencyId : UUID
+	- defaultCurrencyId : UUID
+	- defaultAccountId : UUID
+	}
+	
+	interface TreeStructure {
+	+ getId() : UUID
+	+ getParentId() : UUID
+	}
+	
+	class AccountTotal {
+	- account : Account
+	- totals : Map[Currency, BigDecimal]
+	}
+	
+	class MonthlyAmount {
+	- amount : BigDecimal
+	- currency : Currency
+	- month : String
+	- type : Record.Type
+	}
+}
+
+namespace mappers { 
+ class RecordMapper {
+  {static} + dto2entity(RecordDTO) : Record
+  {static} + entity2dto(Record) : RecordDTO
+ }
+ class SummaryMapper {
+ {static} + mapAccountTotal(List[AccountTotalDTO], Context) : List[AccountTotal]
+ {static} + mapMonthlyExpenseIncome(List[ExpenseIncomeDTO], Context) : Map[String, List[MonthlyAmount]]
+ }
+}
+
+namespace export {
+ class ContextXmlExporter {
+ {static} + export(Context, File)
+ }
+}
+
+namespace exchangerateproviders {
+ namespace implementations {
+  class FixerProvider {
+  }
+  class FixerResponse {
+  }
+ }
+ interface ExchangeRateProvider {
+ + fetch(String, List<String>) : Map<String, BigDecimal>
+ }
+}
+
+namespace db {
+namespace dto {
+class AccountTotalDTO {
++ accountId : UUID
++ amount : BigDecimal
++ currencyId : UUID
+}
+class ExpenseIncomeDTO {
++ amount : BigDecimal
++ currencyId : UUID
++ type : String
++ year : int 
++ month : int
+}
+class RecordDTO {
++ id : UUID
++ ownerId : UUID
++ date : Date
++ comment : String
++ type : Record.Type
++ entries : List[RecordDTO.Entry]
+}
+class "RecordDTO.Entry" as RecordDTOEntry {
++ accountId : UUID
++ amount : BigDecimal
++ currencyId : UUID
++ categoryId : UUID
++ comment : String
++ tagIds : Set[UUID]
+}
+}
+class DBConnection {
+{static} + getInstance() : DBConnection
++ connection() : Connection
+}
+}
+
+namespace dao {
+	namespace sql {
+		class AccountSQLDAO {}
+		class CategorySQLDAO {}
+		class CurrencySQLDAO {}
+		abstract class EntitySQLDAO {}
+		class RecordSQLDAO {}
+		class SummarySQLDAO {}
+		class TagSQLDAO {}
+		class UserSQLDAO {}
+	}
+	interface EntityDAO {
+	+ findAll(UUID) : List[T]
+	+ add(T) : boolean
+	+ update(T) : boolean
+	+ delete(UUID, UUID) : boolean
+	}
+	
+	interface SummaryDAO {
+	+ getAccountTotals(UUID) : List[AccountTotalDTO] 
+    + getExpenseIncome(UUID) : List[ExpenseIncomeDTO]
+	}
+	
+	interface UserDAO {
+	+ findAll() : List[User]
+	+ getById(UUID) : Optional[User]
+	+ getByUsername(String) : Optional[User]
+	+ add(User) : boolean
+	+ update(User) : boolean
+	+ delete(UUID) : boolean
+	}
+}
+
+namespace controller {
+	class MainController {
+		- context : Context
+		- accountDAO : EntityDAO[Account]
+		- categoryDAO : EntityDAO[Category]
+		- currencyDAO : EntityDAO[Currency]
+		- recordDAO : EntityDAO[RecordDTO]
+		- summaryDAO : SummaryDAO
+		- tagDAO : EntityDAO[Tag]
+		- userDAO : UserDAO
+
+	}
+	class LoginController {
+		- userDAO : UserDAO
+		- switchToMainView(User)
+	}
+	class ExchangeRateService {
+	- exchangeRateProvider : ExchangeRateProvider
+	}
+}
+
+namespace common {
+ class Config {
+ {static} + getInstance() : Config
+ - save()
+ + getProperty(String) : String
+ + setProperty(String, String)
+ }
+ class IOUtils {
+ {static} + readStream(InputStream) : String
+ }
+}
+
+Expense --|> Record
+Income --|> Record
+Exchange --|> Record
+Transfer --|> Record
+Category ..|> TreeStructure
+Account ..|> TreeStructure
+Account +-- AccountType
+Amount o--up- Currency
+User +-- Profile
+User *-- Profile
+Record +-- RecordType
+Expense *-- Entry
+Income *-- Entry
+Context *-- Account
+Context *-- Category
+Context *-- Tag
+Context *-- User
+Context *-- Currency
+AccountTotal ..|> TreeStructure
+FixerProvider -- FixerResponse
+FixerProvider ..|> ExchangeRateProvider
+RecordDTO +-- RecordDTOEntry
+RecordDTO *-- RecordDTOEntry
+RecordMapper -- RecordDTO
+RecordMapper -- Record
+SummaryMapper -- AccountTotal
+SummaryMapper -- MonthlyAmount
+SummaryMapper -- AccountTotalDTO
+SummaryMapper -- ExpenseIncomeDTO
+ContextXmlExporter -- Context
+EntitySQLDAO ..|> EntityDAO
+AccountSQLDAO --|> EntitySQLDAO
+CategorySQLDAO --|> EntitySQLDAO
+CurrencySQLDAO --|> EntitySQLDAO
+RecordSQLDAO --|> EntitySQLDAO
+TagSQLDAO --|> EntitySQLDAO
+SummarySQLDAO ..|> SummaryDAO
+UserSQLDAO ..|> UserDAO
+ExchangeRateService -- ExchangeRateProvider
+LoginController -- UserDAO
+MainController -down-- Context
+MainController -up-- EntityDAO
+MainController -up-- SummaryDAO
+MainController -up-- UserDAO
+MainController -left-- ExchangeRateService
+MainController -- ContextXmlExporter
+ExchangeRateService -- ExchangeRate
+MainController -- LoginController
+@enduml
